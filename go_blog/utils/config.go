@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -22,8 +23,9 @@ type Config struct {
 		Prompt string `mapstructure:"prompt"`
 	} `mapstructure:"ai"`
 	Server struct {
-		Host string `mapstructure:"host"`
-		Port string `mapstructure:"port"`
+		Host     string `mapstructure:"host"`
+		Port     string `mapstructure:"port"`
+		LogLevel string `mapstructure:"logLevel"`
 	} `mapstructure:"server"`
 }
 
@@ -44,6 +46,7 @@ func LoadConfig() error {
 	// 设置环境变量前缀
 	viper.SetEnvPrefix("BLOG")
 	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	// 读取配置文件
 	if err := viper.ReadInConfig(); err != nil {

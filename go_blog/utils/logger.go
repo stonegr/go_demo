@@ -3,6 +3,7 @@ package utils
 import (
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -21,7 +22,24 @@ func InitLogger() {
 	})
 
 	// 设置日志级别
-	Log.SetLevel(logrus.InfoLevel)
+	switch strings.ToLower(AppConfig.Server.LogLevel) {
+	case "panic":
+		logrus.SetLevel(logrus.PanicLevel)
+	case "fatal":
+		logrus.SetLevel(logrus.FatalLevel)
+	case "error":
+		logrus.SetLevel(logrus.ErrorLevel)
+	case "warn", "warning":
+		logrus.SetLevel(logrus.WarnLevel)
+	case "info":
+		logrus.SetLevel(logrus.InfoLevel)
+	case "debug":
+		logrus.SetLevel(logrus.DebugLevel)
+	case "trace":
+		logrus.SetLevel(logrus.TraceLevel)
+	default:
+		logrus.SetLevel(logrus.InfoLevel)
+	}
 
 	// 创建日志目录
 	logDir := "logs"

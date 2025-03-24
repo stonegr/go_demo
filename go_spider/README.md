@@ -42,18 +42,24 @@ categories := []string{"category1", "category2"} // 修改为要爬取的分类
 
 ## 数据库结构
 
-程序会自动创建以下数据表：
+在运行前需先创建以下数据表：
 
 ```sql
-CREATE TABLE articles (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    summary TEXT,
-    category VARCHAR(50),
-    publish_time VARCHAR(50),
-    content LONGTEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
+CREATE TABLE `post`  (
+  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '文章ID',
+  `created_at` datetime(3) NULL DEFAULT NULL,
+  `updated_at` datetime(3) NULL DEFAULT NULL,
+  `deleted_at` datetime(3) NULL DEFAULT NULL,
+  `title` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_german2_ci NOT NULL COMMENT '文章标题',
+  `summary` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_german2_ci NULL DEFAULT NULL COMMENT '文章摘要',
+  `content` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_german2_ci NULL COMMENT '文章内容',
+  `category` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_german2_ci NULL DEFAULT NULL COMMENT '文章分类',
+  `publish_time` date NOT NULL COMMENT '发布时间',
+  `image_url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_german2_ci NULL DEFAULT NULL COMMENT '文章配图URL',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_posts_deleted_at`(`deleted_at`) USING BTREE,
+  INDEX `idx_posts_category`(`category`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 141 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_german2_ci ROW_FORMAT = Dynamic;
 ```
 
 ## 使用方法

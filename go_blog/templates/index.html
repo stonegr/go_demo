@@ -49,22 +49,26 @@
         <div class="card mb-3">
             <div class="row g-0">
                 <div class="col-md-3">
-                    {{ if .ImageUrl }}
-                    <img src="{{ .ImageUrl }}" class="img-fluid rounded" alt="{{ .Title }}"
-                        style="height: 200px; width: 100%; object-fit: cover;">
-                    {{ else }}
-                    <div class="bg-light rounded"
-                        style="height: 200px; width: 100%; display: flex; align-items: center; justify-content: center;">
-                        <span class="text-muted">暂无图片</span>
-                    </div>
-                    {{ end }}
+                    <a href="/post/{{ .ID }}" class="text-decoration-none">
+                        {{ if .ImageUrl }}
+                        <img src="{{ .ImageUrl }}" class="img-fluid rounded" alt="{{ .Title }}"
+                            style="height: 200px; width: 100%; object-fit: cover;">
+                        {{ else }}
+                        <div class="bg-light rounded"
+                            style="height: 200px; width: 100%; display: flex; align-items: center; justify-content: center;">
+                            <span class="text-muted">暂无图片</span>
+                        </div>
+                        {{ end }}
+                    </a>
                 </div>
                 <div class="col-md-9">
                     <div class="card-body">
                         <h5 class="card-title">
                             <a href="/post/{{ .ID }}" class="text-decoration-none text-dark">{{ .Title }}</a>
                         </h5>
-                        <p class="card-text">{{ .Summary }}</p>
+                        <a href="/post/{{ .ID }}" class="text-decoration-none text-dark">
+                            <p class="card-text">{{ .Summary }}</p>
+                        </a>
                         <p class="card-text">
                             <small class="text-muted">
                                 分类：{{ .Category }} |

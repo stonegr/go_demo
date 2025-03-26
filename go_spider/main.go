@@ -73,7 +73,7 @@ func main() {
 
 		// 将文章保存到数据库
 		insertSQL := `
-		INSERT INTO posts2 (title, summary, category, publish_time, content, image_url)
+		INSERT INTO posts (title, summary, category, publish_time, content, image_url)
 		VALUES (?, ?, ?, ?, ?, ?)`
 
 		_, err := db.Exec(insertSQL,

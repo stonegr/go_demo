@@ -1,0 +1,17 @@
+database:
+  host: mysql
+  port: 3306
+  user: go_blog
+  password: go_blog
+  name: go_blog
+
+AI:
+  apiKey: sk-abc
+  url: https://api.openai.com/v1/chat/completions
+  model: gpt-4o-mini
+  prompt: 请使用markdown格式简要总结以下文章的主要内容，提取重点：
+
+server:
+  host: localhost
+  port: 8080 
+  logLevel: info

@@ -1,22 +1,35 @@
 # Blog CLI
 
-一个用Go语言开发的命令行博客工具，用于管理和发布博客文章。
+一个用于同步博客文章到数据库的命令行工具。该工具可以跟踪Markdown博客文章的变化，并只更新已修改的文件。
 
 ## 功能特点
 
-- 文章管理：支持创建、编辑、删除和查看博客文章
-- 数据库支持：使用MySQL数据库存储文章数据
-- 多平台支持：支持Windows、Linux和macOS（包括Intel和Apple Silicon）
-- 配置管理：使用YAML配置文件进行系统配置
+- 支持Markdown文件的同步
+- 智能追踪文件变化
+- 增量更新，只同步修改过的文件
+- 跨平台支持（Windows、Linux、macOS）
+- 配置灵活，支持自定义设置
+
+## 项目结构
+
+```
+.
+├── articles/     # 存放Markdown博客文章
+├── build/        # 编译后的二进制文件
+├── cmd/          # 命令行工具的核心代码
+├── models/       # 数据模型定义
+├── utils/        # 工具函数
+├── main.go       # 程序入口
+└── build.sh      # 构建脚本
+```
 
 ## 系统要求
 
-- Go 1.21 或更高版本
-- MySQL 数据库
+- Go 1.16 或更高版本
 - 支持的操作系统：
   - Windows (64-bit)
   - Linux (64-bit)
-  - macOS (Intel/Apple Silicon)
+  - macOS (Intel/ARM)
 
 ## 安装
 
@@ -24,119 +37,95 @@
 
 1. 克隆仓库：
 ```bash
-git clone https://github.com/yourusername/blog-cli.git
+git clone https://github.com/stonegr/blog-cli.git
 cd blog-cli
 ```
 
-2. 安装依赖：
-```bash
-go mod download
-```
-
-3. 构建项目：
-```bash
-# Windows
-go build -o blog_cli.exe
-
-# Linux/macOS
-go build -o blog_cli
-```
-
-或者使用提供的构建脚本：
+2. 运行构建脚本：
 ```bash
 ./build.sh
 ```
 
 构建完成后，可执行文件将位于 `build` 目录中。
 
-### 配置
+### 直接下载
 
-1. 复制配置文件模板：
-```bash
-cp config.yaml.example config.yaml
-```
+你可以从 releases 页面下载预编译的二进制文件。
 
-2. 编辑 `config.yaml` 文件，配置数据库连接信息：
+## 配置
+
+编辑 `config.yaml` 文件来配置你的设置：
+
 ```yaml
+# 数据库配置
 database:
-    host: localhost
-    port: 3306
-    user: go_blog
-    password: go_blog
-    dbname: go_blog
-scan:
-    dir: ""  # 文章目录路径
-    workers: 0  # 扫描工作线程数
-```
+  host: localhost
+  port: 5432
+  user: your_username
+  password: your_password
+  dbname: your_database
 
-3. 创建数据库：
-```sql
-CREATE DATABASE go_blog;
+# 同步设置
+scan:
+    dir: "" # 需要扫描的目录
+    workers: 0 # 并发数量
 ```
 
 ## 使用方法
 
-### 基本命令
-
+1. 生成配置文件：
 ```bash
-# 查看帮助信息
+./blog_cli config
+```
+> 请根据config.yaml格式修改数据库相关信息
+
+2. 生成示例文章：
+```bash
+./blog_cli generate -c 1000
+```
+> 上述代码会默认在articles文件夹生成1000个示例markdown文件
+
+3. 同步文章：
+```bash
+./blog_cli sync
+```
+
+4. 查看帮助：
+```bash
 blog_cli --help
-
-# 创建新文章
-blog_cli create "文章标题"
-
-# 编辑文章
-blog_cli edit <文章ID>
-
-# 删除文章
-blog_cli delete <文章ID>
-
-# 列出所有文章
-blog_cli list
-
-# 查看文章详情
-blog_cli view <文章ID>
-```
-
-## 项目结构
-
-```
-blog-cli/
-├── articles/     # 文章存储目录
-├── build/        # 编译输出目录
-├── cmd/          # 命令行工具实现
-├── models/       # 数据模型
-├── utils/        # 工具函数
-├── config.yaml   # 配置文件
-├── go.mod        # Go模块文件
-├── go.sum        # Go依赖版本锁定文件
-└── build.sh      # 构建脚本
 ```
 
 ## 开发
 
-### 目录说明
+### 本地开发
 
-- `articles/`: 存放博客文章的目录
-- `cmd/`: 包含命令行工具的主要实现代码
-- `models/`: 定义数据模型和数据库操作
-- `utils/`: 包含各种工具函数和辅助方法
-- `build/`: 存放编译后的可执行文件
-- `log/`: 存放日志文件
+1. 安装依赖：
+```bash
+go mod download
+```
 
-### 依赖管理
+2. 本地构建：
+```bash
+go build
+```
 
-项目使用Go模块进行依赖管理，主要依赖包括：
+### 贡献指南
 
-- `github.com/spf13/cobra`: 命令行工具框架
-- `gopkg.in/yaml.v3`: YAML配置文件解析
-- `gorm.io/gorm`: ORM框架
-- `gorm.io/driver/mysql`: MySQL数据库驱动
-
-## 贡献
-
-欢迎提交Issue和Pull Request来帮助改进这个项目。
+1. Fork 项目
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 开启 Pull Request
 
 ## 许可证
 
-MIT License 
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
+
+## 作者
+
+- 你的名字 - [@stonegr](https://github.com/stonegr)
+
+## 致谢
+
+- [Cobra](https://github.com/spf13/cobra) - 用于构建命令行应用
+- 其他使用的开源项目 

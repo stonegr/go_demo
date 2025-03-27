@@ -34,28 +34,52 @@ var (
 	workerCount int
 )
 
-type articleTask struct {
-	path     string
-	relPath  string
-	fileInfo os.FileInfo
+// 将配置相关常量分组
+const (
+	batchSize = 50 // 数据库批量提交的大小
+)
+
+// DatabaseConfig 数据库配置参数
+type DatabaseConfig struct {
+	Host     string
+	Port     int
+	User     string
+	Password string
+	DBName   string
 }
 
-type syncStats struct {
-	created int32
-	updated int32
-	skipped int32
-	deleted int32
-	scanned int32
-	errored int32
+// SyncConfig 同步配置参数
+type SyncConfig struct {
+	DirPath     string
+	ConfigPath  string
+	WorkerCount int
+	DB          DatabaseConfig
 }
 
-// 添加新的结构体用于收集数据库操作
-type articleOperation struct {
-	article *models.Article
-	isNew   bool
+// ArticleTask 文章处理任务
+type ArticleTask struct {
+	Path     string
+	RelPath  string
+	FileInfo os.FileInfo
 }
 
-// 添加新的结构体用于缓存文章信息
+// SyncStats 同步统计信息
+type SyncStats struct {
+	Created int32
+	Updated int32
+	Skipped int32
+	Deleted int32
+	Scanned int32
+	Errored int32
+}
+
+// ArticleOperation 数据库操作, 看遍历出来的文章是需要创建还是更新
+type ArticleOperation struct {
+	Article *models.Article
+	IsNew   bool
+}
+
+// ArticleCache 文章缓存信息
 type ArticleCache struct {
 	ID        int64
 	MD5Check  string
@@ -63,24 +87,24 @@ type ArticleCache struct {
 	Existing  bool
 }
 
-// 添加新的结构体来保证并发安全
+// SafeArticleCache 线程安全的文章缓存
 type SafeArticleCache struct {
 	sync.RWMutex
-	cache map[int64]ArticleCache
+	Cache map[int64]ArticleCache
 }
 
 // 添加安全的操作方法
 func (sc *SafeArticleCache) Get(id int64) (ArticleCache, bool) {
 	sc.RLock()
 	defer sc.RUnlock()
-	val, ok := sc.cache[id]
+	val, ok := sc.Cache[id]
 	return val, ok
 }
 
 func (sc *SafeArticleCache) Set(id int64, value ArticleCache) {
 	sc.Lock()
 	defer sc.Unlock()
-	sc.cache[id] = value
+	sc.Cache[id] = value
 }
 
 var syncCmd = &cobra.Command{
@@ -174,7 +198,7 @@ var syncCmd = &cobra.Command{
 
 		// 预加载所有文章信息到内存
 		safeCache := &SafeArticleCache{
-			cache: make(map[int64]ArticleCache),
+			Cache: make(map[int64]ArticleCache),
 		}
 		var existingArticles []models.Article
 		if err := db.Select("id, md5_check, created_at").Find(&existingArticles).Error; err != nil {
@@ -190,12 +214,12 @@ var syncCmd = &cobra.Command{
 		}
 
 		// 创建任务channel和结果channel
-		tasks := make(chan articleTask, 100)
+		tasks := make(chan ArticleTask, 100)
 		results := make(chan error, 100)
-		var stats syncStats
+		var stats SyncStats
 
 		// 创建操作收集通道
-		opChan := make(chan articleOperation, 100)
+		opChan := make(chan ArticleOperation, 100)
 
 		// 启动批量处理 goroutine
 		var processingWg sync.WaitGroup
@@ -203,7 +227,6 @@ var syncCmd = &cobra.Command{
 		go func() {
 			defer processingWg.Done()
 
-			const batchSize = 50
 			newArticles := make([]*models.Article, 0, batchSize)
 			updateArticles := make([]*models.Article, 0, batchSize)
 
@@ -238,10 +261,10 @@ var syncCmd = &cobra.Command{
 						return
 					}
 
-					if op.isNew {
-						newArticles = append(newArticles, op.article)
+					if op.IsNew {
+						newArticles = append(newArticles, op.Article)
 					} else {
-						updateArticles = append(updateArticles, op.article)
+						updateArticles = append(updateArticles, op.Article)
 					}
 
 					// 当达到批次大小时提交
@@ -256,15 +279,15 @@ var syncCmd = &cobra.Command{
 			}
 		}()
 
-		// 启动worker pool
+		// 启动worker pool 处理遍历后出来的文章
 		var wg sync.WaitGroup
 		for i := 0; i < workerCount; i++ {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				for task := range tasks {
-					if err := processArticle(db, task, &stats, safeCache, opChan, log); err != nil {
-						results <- fmt.Errorf("error processing %s: %v", task.relPath, err)
+					if err := processArticle(task, &stats, safeCache, opChan, log); err != nil {
+						results <- fmt.Errorf("error processing %s: %v", task.RelPath, err)
 					}
 				}
 			}()
@@ -281,9 +304,13 @@ var syncCmd = &cobra.Command{
 					return nil
 				}
 
-				atomic.AddInt32(&stats.scanned, 1)
+				atomic.AddInt32(&stats.Scanned, 1)
 				relPath, _ := filepath.Rel(dirPath, path)
-				tasks <- articleTask{path: path, relPath: relPath, fileInfo: info}
+				tasks <- ArticleTask{
+					Path:     path,
+					RelPath:  relPath,
+					FileInfo: info,
+				}
 				return nil
 			})
 
@@ -309,7 +336,7 @@ var syncCmd = &cobra.Command{
 		// 处理错误
 		for err := range results {
 			if err != nil {
-				atomic.AddInt32(&stats.errored, 1)
+				atomic.AddInt32(&stats.Errored, 1)
 				log.Error("Error: ", err)
 			}
 		}
@@ -323,25 +350,24 @@ var syncCmd = &cobra.Command{
 		// 打印统计信息
 		log.Info("Sync completed successfully!")
 		log.Info("Statistics:")
-		log.Infof("- Files scanned: %d", stats.scanned)
-		log.Infof("- New articles: %d", stats.created)
-		log.Infof("- Updated articles: %d", stats.updated)
-		log.Infof("- Deleted articles: %d", stats.deleted)
-		log.Infof("- Skipped (no changes): %d", stats.skipped)
-		log.Infof("- Errors: %d", stats.errored)
+		log.Infof("- Files scanned: %d", stats.Scanned)
+		log.Infof("- New articles: %d", stats.Created)
+		log.Infof("- Updated articles: %d", stats.Updated)
+		log.Infof("- Deleted articles: %d", stats.Deleted)
+		log.Infof("- Skipped (no changes): %d", stats.Skipped)
+		log.Infof("- Errors: %d", stats.Errored)
 		log.Infof("- Total execution time: %v", duration)
 
 		return nil
 	},
 }
 
-// 修改 processArticle 函数签名，添加日志参数
-func processArticle(db *gorm.DB, task articleTask, stats *syncStats, articleCache *SafeArticleCache, opChan chan<- articleOperation, log *logrus.Logger) error {
-	content, err := os.ReadFile(task.path)
+// processArticle 处理单个文章
+func processArticle(task ArticleTask, stats *SyncStats, articleCache *SafeArticleCache, opChan chan<- ArticleOperation, log *logrus.Logger) error {
+	content, err := os.ReadFile(task.Path)
 	if err != nil {
-		atomic.AddInt32(&stats.errored, 1)
-		log.Error("Error reading file ", task.path, ": ", err)
-		return fmt.Errorf("failed to read file: %v", err)
+		atomic.AddInt32(&stats.Errored, 1)
+		return fmt.Errorf("failed to read file %s: %w", task.Path, err)
 	}
 
 	hash := md5.Sum(content)
@@ -349,16 +375,15 @@ func processArticle(db *gorm.DB, task articleTask, stats *syncStats, articleCach
 
 	article, err := parseArticle(content)
 	if err != nil {
-		atomic.AddInt32(&stats.errored, 1)
-		log.Error("Error parsing article ", task.path, ": ", err)
-		return fmt.Errorf("failed to parse article: %v", err)
+		atomic.AddInt32(&stats.Errored, 1)
+		return fmt.Errorf("failed to parse article %s: %w", task.Path, err)
 	}
 
 	// 修改文章缓存的处理逻辑
 	var isNew bool
 	if existingArticle, ok := articleCache.Get(article.ID); ok {
 		if existingArticle.MD5Check == md5Hash {
-			atomic.AddInt32(&stats.skipped, 1)
+			atomic.AddInt32(&stats.Skipped, 1)
 			articleCache.Set(article.ID, ArticleCache{
 				ID:        article.ID,
 				MD5Check:  md5Hash,
@@ -369,8 +394,8 @@ func processArticle(db *gorm.DB, task articleTask, stats *syncStats, articleCach
 		}
 		article.CreatedAt = existingArticle.CreatedAt
 		article.UpdatedAt = time.Now()
-		atomic.AddInt32(&stats.updated, 1)
-		log.Info("Updated: ", task.relPath)
+		atomic.AddInt32(&stats.Updated, 1)
+		log.Info("Updated: ", task.RelPath)
 
 		articleCache.Set(article.ID, ArticleCache{
 			ID:        article.ID,
@@ -382,8 +407,8 @@ func processArticle(db *gorm.DB, task articleTask, stats *syncStats, articleCach
 	} else {
 		article.CreatedAt = time.Now()
 		article.UpdatedAt = time.Now()
-		atomic.AddInt32(&stats.created, 1)
-		log.Info("Created: ", task.relPath)
+		atomic.AddInt32(&stats.Created, 1)
+		log.Info("Created: ", task.RelPath)
 
 		articleCache.Set(article.ID, ArticleCache{
 			ID:        article.ID,
@@ -396,22 +421,24 @@ func processArticle(db *gorm.DB, task articleTask, stats *syncStats, articleCach
 
 	article.MD5Check = md5Hash
 	// 将操作发送到通道
-	opChan <- articleOperation{
-		article: article,
-		isNew:   isNew,
+	opChan <- ArticleOperation{
+		Article: article,
+		IsNew:   isNew,
 	}
 	return nil
 }
 
-func deleteNonExistentArticles(db *gorm.DB, articleCache *SafeArticleCache, stats *syncStats, log *logrus.Logger) {
+// deleteNonExistentArticles 删除不存在的文章
+func deleteNonExistentArticles(db *gorm.DB, articleCache *SafeArticleCache, stats *SyncStats, log *logrus.Logger) {
 	var idsToDelete []int64
 
-	// 检查缓存中未标记为存在的文章
-	for id := range articleCache.cache {
-		if !articleCache.cache[id].Existing {
+	articleCache.RLock()
+	for id, cache := range articleCache.Cache {
+		if !cache.Existing {
 			idsToDelete = append(idsToDelete, id)
 		}
 	}
+	articleCache.RUnlock()
 
 	if len(idsToDelete) > 0 {
 		// 获取要删除的文章的标题，用于日志记录
@@ -423,10 +450,10 @@ func deleteNonExistentArticles(db *gorm.DB, articleCache *SafeArticleCache, stat
 		}
 
 		if err := db.Delete(&models.Article{}, idsToDelete).Error; err != nil {
-			atomic.AddInt32(&stats.errored, int32(len(idsToDelete)))
+			atomic.AddInt32(&stats.Errored, int32(len(idsToDelete)))
 			log.Error("Error: Failed to delete articles: ", err)
 		} else {
-			atomic.AddInt32(&stats.deleted, int32(len(idsToDelete)))
+			atomic.AddInt32(&stats.Deleted, int32(len(idsToDelete)))
 		}
 	}
 }

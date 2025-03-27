@@ -26,18 +26,19 @@ go mod tidy
 在使用之前，需要修改 `main.go` 中的数据库配置：
 
 ```go
-const (
-    dbUser     = "root"         // 修改为你的数据库用户名
-    dbPassword = "your_password" // 修改为你的数据库密码
-    dbName     = "spider_db"    // 修改为你的数据库名
-)
-```
+	// 数据库配置
+	cfg.DB.Host = "127.0.0.1"
+	cfg.DB.Port = "33306"
+	cfg.DB.User = "go_blog"
+	cfg.DB.Password = "go_blog"
+	cfg.DB.Name = "go_blog"
+	cfg.DB.Table = "posts"
 
-同时，需要修改爬虫的目标网站和分类：
-
-```go
-baseURL := "https://example.com" // 修改为要爬取的网站URL
-categories := []string{"category1", "category2"} // 修改为要爬取的分类
+	// 爬虫配置
+	cfg.Scraper.BaseURL = "https://www.30secondsofcode.org/%s/p/%d/"
+	cfg.Scraper.Categories = []string{"js", "css", "html", "react", "node", "git", "python"}  //抓取的分类名称
+	cfg.Scraper.CatchPages = 1                                                                // 分类下抓取的页数
+	cfg.Scraper.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 ```
 
 ## 数据库结构
@@ -59,7 +60,7 @@ CREATE TABLE `post`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_posts_deleted_at`(`deleted_at`) USING BTREE,
   INDEX `idx_posts_category`(`category`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 141 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_german2_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 140 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_german2_ci ROW_FORMAT = Dynamic;
 ```
 
 ## 使用方法

@@ -1,0 +1,9 @@
+database:
+    host: localhost
+    port: 3306
+    user: go_blog
+    password: go_blog
+    dbname: go_blog
+scan:
+    dir: ""
+    workers: 5
